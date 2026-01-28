@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+
+# Environment Variables
+.env
+
+# Temporary Files
+token.txt
+*.log
