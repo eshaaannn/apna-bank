@@ -1,81 +1,56 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
-const SuccessScreen = ({ onGoHome }) => {
+const SuccessScreen = ({ onHome }) => {
     return (
-        <div style={styles.container}>
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex-center"
+            style={{ flexDirection: 'column', height: '100%', padding: '30px', backgroundColor: '#f0fdf4' }}
+        >
             <motion.div
-                style={styles.circle}
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                style={{
+                    width: '100px',
+                    height: '100px',
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginBottom: '30px',
+                    boxShadow: '0 10px 20px rgba(34, 197, 94, 0.3)'
+                }}
             >
-                <Check size={64} color="white" strokeWidth={3} />
+                <Check size={50} color="white" strokeWidth={3} />
             </motion.div>
 
-            <motion.h2
-                style={styles.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-            >
-                Transfer Complete!
-            </motion.h2>
+            <h2 style={{ color: '#166534', marginBottom: '10px' }}>Transfer Successful!</h2>
+            <p style={{ textAlign: 'center', color: '#15803d' }}>
+                Money has been sent securely.
+            </p>
 
-            <motion.button
-                style={styles.button}
-                whileTap={{ scale: 0.95 }}
-                onClick={onGoHome}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
+            <button
+                onClick={onHome}
+                className="card"
+                style={{
+                    marginTop: '50px',
+                    padding: '15px 40px',
+                    fontSize: '1.2rem',
+                    fontWeight: 600,
+                    color: '#166534',
+                    backgroundColor: '#ffffff'
+                }}
             >
                 Go Home
-            </motion.button>
-        </div>
-    );
-};
+            </button>
 
-const styles = {
-    container: {
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-    },
-    circle: {
-        width: '120px',
-        height: '120px',
-        borderRadius: '50%',
-        backgroundColor: '#22c55e', // Green 500
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: '32px',
-        boxShadow: '0 10px 15px -3px rgba(34, 197, 94, 0.3)',
-    },
-    title: {
-        fontSize: '1.75rem',
-        fontWeight: '700',
-        color: '#1e293b',
-        marginBottom: '60px',
-    },
-    button: {
-        backgroundColor: '#0f172a', // Slate 900
-        color: 'white',
-        padding: '16px 48px',
-        borderRadius: '16px',
-        border: 'none',
-        fontSize: '1.1rem',
-        fontWeight: '600',
-        cursor: 'pointer',
-        width: '80%',
-        maxWidth: '300px',
-    }
+        </motion.div>
+    );
 };
 
 export default SuccessScreen;

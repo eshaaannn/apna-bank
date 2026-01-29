@@ -1,70 +1,69 @@
+import { useState, useEffect, useRef } from 'react';
 
-import { useEffect, useCallback } from 'react';
-
-const VoiceInput = ({ isListening, onTranscript, onStateChange }) => {
-
-    const startListening = Callback(() => {
-        // Check browser support
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            console.error("Browser does not support Speech Recognition");
-            return;
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US'; // Default to English, maybe configurable later
-
-        recognition.onstart = () => {
-            onStateChange(true);
-        };
-
-        recognition.onend = () => {
-            onStateChange(false);
-        };
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            onTranscript(transcript);
-        };
-
-        recognition.onerror = (event) => {
-            console.error("Speech Recognition Error", event.error);
-            onStateChange(false);
-        };
-
-        recognition.start();
-    }, [onTranscript, onStateChange]);
-
-    // Hooking into isListening prop to trigger start purely? 
-    // actually component logic suggests this component might "control" the recognition
-    // but for now, let's expose specific methods or use an effect if props change.
-    // Requirement: "App listens" when user taps.
-
-    // Actually easiest path: Expose a helper or just return null and handle logic?
-    // User asked for "VoiceInput.jsx ... Main voice listener".
+const VoiceInput = ({ listening, onSpeechStart, onSpeechEnd, onResult, onError }) => {
+    const recognitionRef = useRef(null);
+    const isRunning = useRef(false);
 
     useEffect(() => {
-        if (isListening) {
-            startListening();
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isRunning.current = true;
+                if (onSpeechStart) onSpeechStart();
+            };
+
+            recognition.onend = () => {
+                isRunning.current = false;
+                if (onSpeechEnd) onSpeechEnd();
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                if (onResult) onResult(transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                if (onError) onError(event.error);
+
+                // If not allowed/error, force stop state
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    if (onSpeechEnd) onSpeechEnd();
+                }
+            };
+
+            recognitionRef.current = recognition;
+        } else {
+            console.warn("Speech Recognition API not supported.");
         }
-    }, [isListening, startListening]);
 
-    return null; // This component handles logic, no UI output itself. 
-    // UI is VoiceRecorder.
-};
+        return () => {
+            if (recognitionRef.current) recognitionRef.current.abort();
+        };
+    }, []);
 
-// Also need a helper for Synthesis
-export const speak = (text, onEnd) => {
-    if (!window.speechSynthesis) return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9; // Slightly slower for clarity
-    utterance.pitch = 1.0;
-    if (onEnd) {
-        utterance.onend = onEnd;
-    }
-    window.speechSynthesis.speak(utterance);
+    useEffect(() => {
+        if (!recognitionRef.current) return;
+
+        if (listening) {
+            try {
+                // Only start if not already running (approximate check, api throws if started)
+                if (!isRunning.current) recognitionRef.current.start();
+            } catch (e) {
+                console.log("Start error (likely already started):", e);
+            }
+        } else {
+            recognitionRef.current.stop();
+        }
+    }, [listening]);
+
+    return null;
 };
 
 export default VoiceInput;

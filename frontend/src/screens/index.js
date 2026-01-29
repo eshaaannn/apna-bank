@@ -1,6 +1,12 @@
-export { default as Home } from './Home';
-export { default as RecipientInput } from './RecipientInput';
-export { default as TransferConfirm } from './TransferConfirm';
-export { default as SuccessScreen } from './SuccessScreen';
-export { default as ErrorScreen } from './ErrorScreen';
-export { default as BalanceResult } from './BalanceResult';
+import Home from './Home';
+import RecipientInput from './RecipientInput';
+import TransferConfirm from './TransferConfirm';
+import SuccessScreen from './SuccessScreen';
+import ErrorScreen from './ErrorScreen';
+import BalanceResult from './BalanceResult';
+import Login from './Login';
+import Register from './Register';
+
+import { History, Insight, Settings } from './PlaceholderScreens';
+
+export { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Insight, Settings };

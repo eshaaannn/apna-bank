@@ -1,50 +1,87 @@
 
-import { supabase, isConfigured } from './supabaseClient';
+import { supabase } from '../supabaseClient';
 
-/**
- * Sends a voice command transcript to the backend or returns a mock response.
- * @param {string} transcript - The user's spoken command.
- * @returns {Promise<{text: string, data?: any}>}
- */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 export async function sendVoiceCommand(transcript) {
-    // 1. Try Supabase Edge Function if configured
-    if (isConfigured && supabase) {
-        try {
-            const { data, error } = await supabase.functions.invoke('voice-command', {
-                body: { transcript },
-            });
+    // 1. Get current session for Auth Token
+    const { data: { session } } = await supabase.auth.getSession();
 
-            if (!error && data) {
-                return data; // Expected format: { text: "Response text", ... }
-            }
-        } catch (err) {
-            console.warn("Backend unavailable, switching to fallback mode:", err);
-        }
+    // For MVP/Dev, if no session, we might want to allow it or mock it.
+    // The user requirement says: "if !session ... return getMockResponse".
+    if (!session) {
+        console.warn("User not logged in (or no session). Using mock response.");
+        return getMockResponse(transcript);
     }
 
-    // 2. Fallback Logic (Mock Responses)
-    return getMockResponse(transcript);
+    try {
+        // 2. Call Python Backend
+        const response = await fetch(`${API_BASE_URL}/voice/command`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}` // Pass Supabase JWT
+            },
+            body: JSON.stringify({
+                text: transcript
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+
+        // 3. Return Data in expected format
+        const data = await response.json();
+        return data;
+    } catch (err) {
+        console.error("Backend request failed:", err);
+        return getMockResponse(transcript); // Graceful fallback
+    }
 }
 
-function getMockResponse(transcript) {
-    const t = transcript.toLowerCase();
+// Fallback Mock Logic (Mimics Backend for testing UI without Backend)
+function getMockResponse(text) {
+    const lowerText = text.toLowerCase();
 
-    // Simulate network delay
-    return new Promise((resolve) => {
+    // DELAY to simulate network
+    return new Promise(resolve => {
         setTimeout(() => {
-            if (t.includes('balance') || t.includes('paisa') || t.includes('money')) {
-                resolve({ text: "Your total balance is 5,000 rupees." });
-            } else if (t.includes('send') || t.includes('transfer') || t.includes('bhejo')) {
-                resolve({ text: "I have sent 1,000 rupees to your mother." });
-            } else if (t.includes('loan') || t.includes('udhar')) {
-                resolve({ text: "Your loan application for 50,000 rupees is approved." });
-            } else if (t.includes('hello') || t.includes('hi')) {
-                resolve({ text: "Namaste! I am your banking assistant. Say balance, or send money." });
-            } else if (t.includes('help')) {
-                resolve({ text: "You can ask me to check balance, send money, or check loan status." });
+            if (lowerText.includes('balance') || lowerText.includes('spending')) {
+                resolve({
+                    text: "Your current balance is 5,000 rupees.",
+                    intent: "balance",
+                    data: { balance: 5000 }
+                });
+            } else if (lowerText.includes('send') || lowerText.includes('pay')) {
+                // If incomplete
+                resolve({
+                    text: "Who do you want to send money to?",
+                    intent: "ask_recipient"
+                });
+            } else if (['mom', 'rahul', 'shop', 'sarah'].some(name => lowerText.includes(name))) {
+                resolve({
+                    text: `How much do you want to send?`,
+                    intent: "ask_amount",
+                    data: { recipient: text } // Simplified
+                });
+            } else if (lowerText.match(/\d+/)) {
+                resolve({
+                    text: `Confirm transfer of ${lowerText.match(/\d+/)[0]}? Say Yes.`,
+                    intent: "confirm_transfer",
+                    data: { amount: lowerText.match(/\d+/)[0] }
+                });
+            } else if (lowerText.includes('yes') || lowerText.includes('confirm')) {
+                resolve({
+                    text: "Successfully transferred.",
+                    intent: "transfer_success"
+                });
             } else {
-                resolve({ text: "I did not understand. Please say balance, send money, or loan." });
+                resolve({
+                    text: "I didn't understand that.",
+                    intent: "unknown"
+                });
             }
-        }, 800);
+        }, 1000);
     });
 }
