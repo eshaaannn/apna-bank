@@ -1,106 +1,41 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 
-const TransferConfirm = ({ recipient, amount, onConfirm }) => {
+const TransferConfirm = ({ amount, recipient, onBack }) => {
     return (
-        <div style={styles.container}>
-            <h2 style={styles.title}>Confirm Transfer?</h2>
+        <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="flex-center"
+            style={{ flexDirection: 'column', height: '100%', padding: '30px', paddingTop: '80px', justifyContent: 'flex-start' }}
+        >
+            <div className="back-btn" onClick={onBack}>
+                <ArrowLeft size={24} color="white" />
+            </div>
 
-            <motion.div
-                style={styles.card}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-            >
-                <p style={styles.label}>Sending to</p>
-                <h3 style={styles.recipient}>{recipient || "Unknown"}</h3>
+            <h2 style={{ marginBottom: '40px' }}>Confirm Transfer</h2>
 
-                <div style={styles.divider} />
+            <div className="card" style={{ width: '100%', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', background: 'white' }}>
+                <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#4f46e5', letterSpacing: '-2px' }}>
+                    ₹{amount}
+                </div>
 
-                <p style={styles.label}>Amount</p>
-                <h1 style={styles.amount}>${amount || "0"}</h1>
-            </motion.div>
+                <div style={{ width: '100%', height: '1px', background: '#e2e8f0' }}></div>
 
-            <p style={styles.hint}>Say "Yes" to confirm</p>
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontSize: '0.9rem', marginBottom: '5px' }}>Sending to</p>
+                    <h3 style={{ margin: 0, fontSize: '1.8rem', color: '#1e293b' }}>{recipient}</h3>
+                </div>
+            </div>
 
-            {/* Visual Button for fallback */}
-            <motion.button
-                style={styles.button}
-                whileTap={{ scale: 0.95 }}
-                onClick={onConfirm}
-            >
-                Confirm Transfer
-            </motion.button>
-        </div>
+            <div style={{ marginTop: 'auto', marginBottom: '100px', textAlign: 'center', opacity: 0.8 }}>
+                <p>Say <strong>"Yes"</strong> to confirm</p>
+                <p>Say <strong>"No"</strong> to cancel</p>
+            </div>
+        </motion.div>
     );
-};
-
-const styles = {
-    container: {
-        height: '100vh',
-        padding: '40px 24px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-    },
-    title: {
-        fontSize: '1.5rem',
-        fontWeight: '600',
-        marginBottom: '40px',
-        color: '#1e293b',
-    },
-    card: {
-        backgroundColor: 'white',
-        width: '100%',
-        maxWidth: '320px',
-        borderRadius: '24px',
-        padding: '32px',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-        textAlign: 'center',
-        marginBottom: '40px',
-    },
-    label: {
-        fontSize: '0.9rem',
-        color: '#64748b',
-        margin: 0,
-        marginBottom: '8px',
-    },
-    recipient: {
-        fontSize: '1.5rem',
-        fontWeight: '600',
-        color: '#0f172a',
-        margin: 0,
-        marginBottom: '24px',
-    },
-    divider: {
-        height: '1px',
-        backgroundColor: '#e2e8f0',
-        margin: '0 20px 24px',
-    },
-    amount: {
-        fontSize: '3rem',
-        fontWeight: '700',
-        color: '#0f172a',
-        margin: 0,
-    },
-    hint: {
-        color: '#64748b',
-        marginBottom: '20px',
-    },
-    button: {
-        backgroundColor: '#0ea5e9',
-        color: 'white',
-        padding: '16px 32px',
-        borderRadius: '16px',
-        border: 'none',
-        fontSize: '1.1rem',
-        fontWeight: '600',
-        width: '100%',
-        maxWidth: '320px',
-        cursor: 'pointer',
-    }
 };
 
 export default TransferConfirm;

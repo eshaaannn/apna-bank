@@ -1,95 +1,52 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 
-const RecipientInput = ({ transcript }) => {
+const RecipientInput = ({ onSelect, onBack }) => {
     const contacts = [
-        { name: "Mom", image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mom" },
-        { name: "Rahul", image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul" },
-        { name: "Sarah", image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" },
+        { name: 'Mom', id: 1, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mom' },
+        { name: 'Rahul', id: 2, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul' },
+        { name: 'Shop', id: 3, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Shop' },
     ];
 
     return (
-        <div style={styles.container}>
-            <h2 style={styles.title}>Who do you want to send money to?</h2>
+        <motion.div
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '-100%', opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="flex-center"
+            style={{ flexDirection: 'column', height: '100%', padding: '20px', justifyContent: 'flex-start', paddingTop: '80px' }}
+        >
+            <div className="back-btn" onClick={onBack}>
+                <ArrowLeft size={24} color="#1e293b" />
+            </div>
 
-            <div style={styles.grid}>
-                {contacts.map((contact) => (
+            <h2 className="text-center" style={{ marginBottom: '40px' }}>Who are you sending to?</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', width: '100%' }}>
+                {contacts.map((contact, index) => (
                     <motion.div
-                        key={contact.name}
-                        style={styles.card}
-                        whileTap={{ scale: 0.95 }}
+                        key={contact.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="card flex-center"
+                        style={{ flexDirection: 'column', gap: '10px', padding: '20px', cursor: 'pointer', border: 'none' }}
+                        onClick={() => onSelect(contact.name)}
                     >
-                        <img src={contact.image} alt={contact.name} style={styles.image} />
-                        <p style={styles.name}>{contact.name}</p>
+                        <img
+                            src={contact.avatar}
+                            alt={contact.name}
+                            style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f1f5f9' }}
+                        />
+                        <span style={{ fontWeight: 600 }}>{contact.name}</span>
                     </motion.div>
                 ))}
             </div>
-
-            {transcript && (
-                <div style={styles.transcriptBox}>
-                    <p>Listening: "{transcript}"</p>
-                </div>
-            )}
-        </div>
+        </motion.div>
     );
-};
-
-const styles = {
-    container: {
-        height: '100vh',
-        padding: '40px 24px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        backgroundColor: '#f8fafc',
-    },
-    title: {
-        fontSize: '1.5rem',
-        fontWeight: '600',
-        color: '#1e293b',
-        textAlign: 'center',
-        marginBottom: '40px',
-    },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '20px',
-        width: '100%',
-        maxWidth: '400px',
-    },
-    card: {
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-    },
-    image: {
-        width: '60px',
-        height: '60px',
-        borderRadius: '50%',
-        marginBottom: '12px',
-        backgroundColor: '#e2e8f0',
-    },
-    name: {
-        fontSize: '1.1rem',
-        fontWeight: '500',
-        color: '#334155',
-        margin: 0,
-    },
-    transcriptBox: {
-        marginTop: 'auto',
-        padding: '16px',
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-        borderRadius: '12px',
-        marginBottom: '20px'
-    }
 };
 
 export default RecipientInput;
