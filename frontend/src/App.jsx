@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { VoiceRecorder, VoiceInput } from './voice';
-import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Insight, Settings } from './screens';
+import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Profile, Settings } from './screens';
 import { sendVoiceCommand } from './api/bankingApi';
 import { ArrowLeft } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
@@ -19,17 +19,19 @@ const STATES = {
   ERROR: 'ERROR',
   BALANCE: 'BALANCE',
   HISTORY: 'HISTORY',
-  INSIGHT: 'INSIGHT',
+  PROFILE: 'PROFILE',
   SETTING: 'SETTING',
 };
 
 // ... imports
 import { useAuth } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 
 // ... STATES ...
 
 function App() {
   const { user, loading } = useAuth(); // Auth Check
+  const { voiceLang, t } = useLanguage();
   const [isRegistering, setIsRegistering] = useState(false);
 
   const [appState, setAppState] = useState(STATES.IDLE);
@@ -43,22 +45,16 @@ function App() {
   // ... (Voice Logic Helpers - speak, processVoiceCommand, etc) ...
   // [KEEP ALL EXISTING LOGIC HELPERS HERE]
 
-  // Need to redefine these here because I am replacing the whole function body or part of it? 
-  // Wait, I should not replace the whole file content blindly.
-  // I will just modify the RETURN statement and the top-level hook.
-
-  // EDIT: I cannot easily insert hooks at top and wrap return at bottom with one replace call if they are far apart.
-  // I will use a larger replacement to cover the structure.
-
   // Voice Interaction Helpers
   const speak = useCallback((text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = voiceLang; // Use context language
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
-  }, []);
+  }, [voiceLang]);
 
   const processVoiceCommand = async (transcript) => {
     console.log("Heard:", transcript);
@@ -88,6 +84,7 @@ function App() {
           setAppState(STATES.SUCCESS);
           break;
         case 'idle': setAppState(STATES.IDLE); break;
+        case 'profile': setAppState(STATES.PROFILE); break;
         default: break;
       }
     } else {
@@ -167,6 +164,7 @@ function App() {
       {/* Voice Logic Layer - Only active when logged in */}
       <VoiceInput
         listening={micActive}
+        language={voiceLang}
         onSpeechStart={() => console.log('Speech Started')}
         onSpeechEnd={onSpeechEnd}
         onResult={onResult}
@@ -217,13 +215,13 @@ function App() {
           )}
 
           {appState === STATES.HISTORY && <History key="history" onHome={goBack} />}
-          {appState === STATES.INSIGHT && <Insight key="insight" onHome={goBack} />}
+          {appState === STATES.PROFILE && <Profile key="profile" onHome={goBack} />}
           {appState === STATES.SETTING && <Settings key="settings" onHome={goBack} />}
         </AnimatePresence>
       </div>
 
-      {/* Persistent Floating Mic - HIDE on Home (IDLE & LISTENING) because Home has its own Hello-style Mic */}
-      {![STATES.IDLE, STATES.LISTENING].includes(appState) && (
+      {/* Persistent Floating Mic - HIDE on Home, History, Profile, Settings */}
+      {![STATES.IDLE, STATES.LISTENING, STATES.HISTORY, STATES.PROFILE, STATES.SETTING].includes(appState) && (
         <div style={{ position: 'absolute', bottom: '40px', left: '0', right: '0', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 100 }}>
           <div style={{ pointerEvents: 'auto' }}>
             <VoiceRecorder isListening={micActive} onClick={handleMicClick} />

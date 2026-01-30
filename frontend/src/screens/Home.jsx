@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { User, CreditCard, History, Home as HomeIcon, Settings, Mic, LogOut } from 'lucide-react';
 import { VoiceRecorder } from '../voice';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // NOTE: We rely on the App.jsx to render the *Functional* VoiceRecorder logic usually.
 // However, for this UI, we want a BIG CENTRAL MIC.
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 
 const Home = ({ onMicClick, isListening, onOptionClick, onNavigate }) => {
     const { logout } = useAuth();
+    const { t } = useLanguage();
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -38,8 +40,8 @@ const Home = ({ onMicClick, isListening, onOptionClick, onNavigate }) => {
             <div className="flex-center" style={{ flexDirection: 'column', gap: '30px', flex: 1 }}>
 
                 <div style={{ textAlign: 'center' }}>
-                    <h1 style={{ fontSize: '2rem', marginBottom: '10px' }}>How can I help you<br />today?</h1>
-                    <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>I'm ready to assist with your finances.</p>
+                    <h1 style={{ fontSize: '2rem', marginBottom: '10px' }}>{t('greeting')}</h1>
+                    <p style={{ fontSize: '0.9rem', opacity: 0.7 }}>{t('greeting')}</p>
                 </div>
 
                 {/* Replicating the Visual of the layout: Big Mic in Center */}
@@ -87,7 +89,7 @@ const Home = ({ onMicClick, isListening, onOptionClick, onNavigate }) => {
                 </div>
 
                 <p style={{ fontSize: '0.9rem', letterSpacing: '2px', opacity: 0.6, textTransform: 'uppercase' }}>
-                    {isListening ? "Listening..." : "Tap to Speak"}
+                    {isListening ? t('listening') : t('tapToSpeak')}
                 </p>
 
                 {/* Waveform graphic could go here */}
@@ -96,30 +98,31 @@ const Home = ({ onMicClick, isListening, onOptionClick, onNavigate }) => {
             {/* Bottom Actions */}
             <div style={{ width: '100%', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '30px' }}>
-                    <button className="chip" onClick={() => onOptionClick('Check Balance')}>Check Balance</button>
-                    <button className="chip" onClick={() => onOptionClick('Send Money')}>Send Money</button>
-                    <button className="chip">Bill Pay</button>
+                    <button className="chip" onClick={() => onOptionClick('Check Balance')}>{t('checkBalance')}</button>
+                    <button className="chip" onClick={() => onOptionClick('Send Money')}>{t('sendMoney')}</button>
+                    <button className="chip">{t('billPay')}</button>
                 </div>
 
                 {/* Nav */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
                     <div onClick={() => onNavigate && onNavigate('IDLE')} className="flex-center" style={{ flexDirection: 'column', gap: '5px', color: '#3b82f6', cursor: 'pointer' }}>
                         <HomeIcon size={24} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>HOME</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('home')}</span>
                     </div>
                     <div onClick={() => onNavigate && onNavigate('HISTORY')} className="flex-center" style={{ flexDirection: 'column', gap: '5px', color: '#64748b', cursor: 'pointer' }}>
                         <History size={24} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>HISTORY</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('history')}</span>
                     </div>
-                    <div onClick={() => onNavigate && onNavigate('INSIGHT')} className="flex-center" style={{ flexDirection: 'column', gap: '5px', color: '#64748b', cursor: 'pointer' }}>
-                        <CreditCard size={24} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>INSIGHT</span>
+                    <div onClick={() => onNavigate && onNavigate('PROFILE')} className="flex-center" style={{ flexDirection: 'column', gap: '5px', color: '#64748b', cursor: 'pointer' }}>
+                        <User size={24} />
+                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('profile')}</span>
                     </div>
                     <div onClick={() => onNavigate && onNavigate('SETTING')} className="flex-center" style={{ flexDirection: 'column', gap: '5px', color: '#64748b', cursor: 'pointer' }}>
                         <Settings size={24} />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>SETTINGS</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('settings')}</span>
                     </div>
                 </div>
+
             </div>
         </motion.div>
     );

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 
-const VoiceInput = ({ listening, onSpeechStart, onSpeechEnd, onResult, onError }) => {
+const VoiceInput = ({ listening, language = 'en-US', onSpeechStart, onSpeechEnd, onResult, onError }) => {
     const recognitionRef = useRef(null);
     const isRunning = useRef(false);
 
+    // Re-initialize recognition when language changes
     useEffect(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -11,7 +12,8 @@ const VoiceInput = ({ listening, onSpeechStart, onSpeechEnd, onResult, onError }
             const recognition = new SpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
-            recognition.lang = 'en-US';
+            recognition.lang = language;
+
 
             recognition.onstart = () => {
                 isRunning.current = true;
