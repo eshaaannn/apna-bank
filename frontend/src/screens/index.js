@@ -7,6 +7,6 @@ import BalanceResult from './BalanceResult';
 import Login from './Login';
 import Register from './Register';
 
-import { History, Insight, Settings } from './PlaceholderScreens';
+import { History, Profile, Settings } from './PlaceholderScreens';
 
-export { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Insight, Settings };
+export { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Profile, Settings };
