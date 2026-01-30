@@ -6,3 +6,5 @@ pydantic-settings==2.7.1
 python-dotenv==1.0.0
 python-multipart==0.0.6
 slowapi==0.1.9
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
