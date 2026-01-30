@@ -4,21 +4,38 @@ import { useAuth } from '../context/AuthContext';
 import { Lock, User, Mail, ArrowRight } from 'lucide-react';
 
 const Register = ({ onLoginClick }) => {
-    const { login } = useAuth(); // Using login for now as we might not have 'register' in context yet
+    const { signUp } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!email || !password) {
+            setError("Email and password are required");
+            return;
+        }
+
         setLoading(true);
-        // Simulate Register -> Then Login
-        setTimeout(async () => {
-            // In a real app, call register(email, password)
-            await login(email || 'newuser@example.com', password || 'demo');
+        setError(null);
+
+        try {
+            const { error: signUpError } = await signUp(email, password, name);
+            if (signUpError) {
+                setError(signUpError.message);
+            } else {
+                // Supabase might require email confirmation. 
+                // In many hackathon configs, it logs you in immediately.
+                console.log("Signup successful!");
+            }
+        } catch (err) {
+            setError("An unexpected error occurred");
+            console.error(err);
+        } finally {
             setLoading(false);
-        }, 1000);
+        }
     };
 
     return (
@@ -32,6 +49,7 @@ const Register = ({ onLoginClick }) => {
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
                 <h1 style={{ marginBottom: '10px' }}>Create Account</h1>
                 <p>Join Voice Bank today</p>
+                {error && <p style={{ color: '#ef4444', marginTop: '10px', fontSize: '0.9rem' }}>{error}</p>}
             </div>
 
             <form onSubmit={handleSubmit} style={{ width: '100%', gap: '15px', display: 'flex', flexDirection: 'column' }}>

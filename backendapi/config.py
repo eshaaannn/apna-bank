@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Supabase Configuration
     supabase_url: str
     supabase_key: str
-    supabase_service_key: str
+    database_url: str
     
     # API Configuration
     api_host: str = "0.0.0.0"

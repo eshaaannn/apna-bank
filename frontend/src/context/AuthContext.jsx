@@ -45,6 +45,27 @@ export function AuthProvider({ children }) {
         return { data };
     };
 
+    const signUp = async (email, password, name) => {
+        if (!isConfigured) {
+            console.warn("Supabase not configured. Mocking signup.");
+            setUser({ email, id: 'mock-user-id', user_metadata: { name } });
+            return { error: null };
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name: name
+                }
+            }
+        });
+
+        if (error) return { error };
+        return { data };
+    };
+
     const logout = async () => {
         if (!isConfigured) {
             setUser(null);
@@ -54,7 +75,7 @@ export function AuthProvider({ children }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isConfigured }}>
+        <AuthContext.Provider value={{ user, login, signUp, logout, loading, isConfigured }}>
             {children}
         </AuthContext.Provider>
     );
