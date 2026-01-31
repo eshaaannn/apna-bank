@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     phone TEXT,
     name TEXT,
-    balance DECIMAL(10,2) DEFAULT 0 NOT NULL,
+    balance DECIMAL(10,2) DEFAULT 5000.00 NOT NULL,
+    login_pin TEXT,        -- Hashed 6-digit PIN
+    transfer_pin TEXT,     -- Hashed 4-digit PIN
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
     -- Constraints
@@ -32,10 +34,10 @@ CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    receiver_id UUID,
+    receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
     amount DECIMAL(10,2) NOT NULL,
-    type TEXT NOT NULL,
-    status TEXT DEFAULT 'completed',
+    type TEXT NOT NULL,  -- 'transfer', 'bill_payment', 'deposit'
+    status TEXT DEFAULT 'success', -- 'pending', 'success', 'failed'
     note TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     

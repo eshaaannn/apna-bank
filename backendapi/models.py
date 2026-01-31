@@ -15,6 +15,7 @@ class TransferRequest(BaseModel):
     receiver_phone: str = Field(..., description="Receiver's phone number")
     amount: float = Field(..., gt=0, description="Amount to transfer (must be > 0)")
     note: Optional[str] = Field(None, description="Optional note for transaction")
+    transfer_pin: Optional[str] = Field(None, description="4-digit Transfer PIN for security")
 
 
 class BillPaymentRequest(BaseModel):
@@ -22,11 +23,26 @@ class BillPaymentRequest(BaseModel):
     bill_type: str = Field(..., description="Type of bill (electricity, water, mobile, etc.)")
     amount: float = Field(..., gt=0, description="Amount to pay")
     account_number: str = Field(..., description="Bill account number")
+    transfer_pin: Optional[str] = Field(None, description="4-digit Transfer PIN for security")
 
 
 class VoiceIntentRequest(BaseModel):
     """Request model for voice intent processing."""
     text: str = Field(..., description="Transcribed voice text", min_length=1)
+    voice_verified: bool = Field(False, description="Mocked voice biometric verification result")
+
+
+class PinSetupRequest(BaseModel):
+    """Request model for setting up PINs."""
+    pin: str = Field(..., min_length=4, max_length=6, description="PIN to set")
+    type: str = Field(..., description="'login' (6-digit) or 'transfer' (4-digit)")
+    phone: Optional[str] = Field(None, description="User's phone number")
+
+
+class PinVerifyRequest(BaseModel):
+    """Request model for verifying PINs."""
+    pin: str = Field(..., description="PIN to verify")
+    type: str = Field(..., description="'login' or 'transfer'")
 
 
 # ============== Response Models ==============
@@ -52,6 +68,7 @@ class BillPaymentResponse(BaseModel):
     status: str
     bill_type: str
     new_balance: float
+    message: Optional[str] = None
 
 
 class VoiceIntentResponse(BaseModel):

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { VoiceRecorder, VoiceInput } from './voice';
-import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Insight, Settings } from './screens';
-import { sendVoiceCommand } from './api/bankingApi';
+import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, LoginPin, History, Insight, Settings } from './screens';
+import { sendVoiceCommand, getBalance, executeTransfer, payBill } from './api/bankingApi';
 import { ArrowLeft } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import './index.css';
@@ -21,12 +21,11 @@ const STATES = {
   HISTORY: 'HISTORY',
   INSIGHT: 'INSIGHT',
   SETTING: 'SETTING',
+  PIN_ENTRY: 'PIN_ENTRY',
+  LOGIN_PIN: 'LOGIN_PIN',
 };
 
-// ... imports
 import { useAuth } from './context/AuthContext';
-
-// ... STATES ...
 
 function App() {
   const { user, loading } = useAuth(); // Auth Check
@@ -35,20 +34,13 @@ function App() {
   const [appState, setAppState] = useState(STATES.IDLE);
   const [balance, setBalance] = useState(5000); // Local balance state
 
-  const [transaction, setTransaction] = useState({ recipient: '', amount: '' });
+  const [transaction, setTransaction] = useState({ recipient: '', amount: '', phone: '', type: 'transfer' });
   const [feedbackText, setFeedbackText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [micActive, setMicActive] = useState(false);
-
-  // ... (Voice Logic Helpers - speak, processVoiceCommand, etc) ...
-  // [KEEP ALL EXISTING LOGIC HELPERS HERE]
-
-  // Need to redefine these here because I am replacing the whole function body or part of it? 
-  // Wait, I should not replace the whole file content blindly.
-  // I will just modify the RETURN statement and the top-level hook.
-
-  // EDIT: I cannot easily insert hooks at top and wrap return at bottom with one replace call if they are far apart.
-  // I will use a larger replacement to cover the structure.
+  const [pendingAction, setPendingAction] = useState(null);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Voice Interaction Helpers
   const speak = useCallback((text) => {
@@ -61,38 +53,176 @@ function App() {
   }, []);
 
   const processVoiceCommand = async (transcript) => {
-    console.log("Heard:", transcript);
+    console.log("🎤 Voice Command:", transcript);
+    console.log("📍 Current State:", appState);
     setIsProcessing(true);
-    const response = await sendVoiceCommand(transcript);
-    setIsProcessing(false);
+    try {
+      const response = await sendVoiceCommand(transcript);
+      console.log("📡 Backend Response:", response);
+      if (response) {
+        if (response.message) speak(response.message);
 
-    if (response) {
-      if (response.text) speak(response.text);
-      switch (response.intent) {
-        case 'balance': setAppState(STATES.BALANCE); break;
-        case 'ask_recipient': setAppState(STATES.ASK_RECIPIENT); break;
-        case 'ask_amount':
-          setAppState(STATES.ASK_AMOUNT);
-          if (response.data?.recipient) setTransaction(p => ({ ...p, recipient: response.data.recipient }));
-          break;
-        case 'confirm_transfer':
-          setAppState(STATES.CONFIRM);
-          if (response.data?.amount) setTransaction(p => ({ ...p, amount: response.data.amount }));
-          break;
-        case 'transfer_success':
-        case 'transfer':
-          if (appState === STATES.CONFIRM) {
-            const amt = parseInt(transaction.amount);
-            if (!isNaN(amt)) setBalance(prev => prev - amt);
+        // Handle action_required from backend
+        if (response.action_required) {
+          const { endpoint, params } = response.action_required;
+          setPendingAction(response.action_required);
+
+          if (endpoint === '/transaction/transfer') {
+            setTransaction({
+              recipient: response.entities.receiver_name || '',
+              amount: params.amount || '',
+              phone: params.receiver_phone || '',
+              type: 'transfer'
+            });
+            if (params.amount && params.receiver_phone) {
+              setAppState(STATES.CONFIRM);
+            }
+          } else if (endpoint === '/transaction/billpay') {
+            setTransaction({
+              amount: params.amount || '',
+              type: 'billpay',
+              bill_type: params.bill_type,
+              account_number: params.account_number
+            });
+            setAppState(STATES.CONFIRM);
           }
-          setAppState(STATES.SUCCESS);
-          break;
-        case 'idle': setAppState(STATES.IDLE); break;
-        default: break;
+        }
+
+        switch (response.intent) {
+          case 'balance':
+            fetchBalance();
+            setAppState(STATES.BALANCE);
+            break;
+          case 'ask_recipient': setAppState(STATES.ASK_RECIPIENT); break;
+          case 'ask_amount':
+            setAppState(STATES.ASK_AMOUNT);
+            if (response.entities?.receiver_name) setTransaction(p => ({ ...p, recipient: response.entities.receiver_name }));
+            break;
+          case 'confirm':
+            if (appState === STATES.CONFIRM) {
+              handleConfirmAction();
+            } else if (appState === STATES.PIN_ENTRY || response.entities?.pin) {
+              const pin = response.entities?.pin;
+              if (pin) handleConfirmAction(pin);
+            }
+            break;
+          case 'cancel':
+            goBack();
+            break;
+          case 'idle': setAppState(STATES.IDLE); break;
+          default:
+            // Also check for PIN in unknown intents if we are in PIN_ENTRY state
+            if (appState === STATES.PIN_ENTRY && response.entities?.pin) {
+              handleConfirmAction(response.entities.pin);
+            }
+            break;
+        }
+      } else {
+        const msg = "Sorry, I am having trouble connecting.";
+        speak(msg);
+        setErrorMsg(msg);
+        setAppState(STATES.ERROR);
       }
-    } else {
-      speak("Sorry, I am having trouble connecting.");
+    } catch (e) {
+      console.error("Command processing error:", e);
+      const msg = e.message || "Something went wrong. Please try again.";
+      speak(msg);
+      setErrorMsg(msg);
       setAppState(STATES.ERROR);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const fetchBalance = async () => {
+    const data = await getBalance();
+    if (data && typeof data.balance === 'number') {
+      setBalance(data.balance);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchBalance();
+      // Reset PIN verification on login
+      setIsPinVerified(false);
+      setAppState(STATES.LOGIN_PIN);
+    } else {
+      setAppState(STATES.IDLE);
+    }
+  }, [user]);
+
+  const handleLoginPinVerify = async (pin) => {
+    setIsProcessing(true);
+    try {
+      // Small delay to simulate verification
+      await new Promise(r => setTimeout(r, 1000));
+
+      // In a real app, call backend to verify login PIN
+      // For demo, we'll accept '123456' or any 6-digit PIN if it's their first time
+      setIsPinVerified(true);
+      setAppState(STATES.IDLE);
+      speak("Welcome to Voice Bank. How can I help you today?");
+    } catch (e) {
+      speak("Invalid PIN. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmAction = async (pin = null) => {
+    setIsProcessing(true);
+    let result;
+
+    const amount = parseFloat(transaction.amount);
+    if (isNaN(amount) || amount <= 0) {
+      console.warn("⚠️ Invalid amount:", transaction.amount);
+      speak("The amount is invalid. Please specify a valid amount.");
+      setAppState(STATES.ASK_AMOUNT);
+      setIsProcessing(false);
+      return;
+    }
+
+    console.log("🚀 Executing Transfer:", { ...transaction, phone: transaction.phone || "8888888888", amount, pin: pin ? "****" : "None" });
+
+    try {
+      if (transaction.type === 'transfer') {
+        result = await executeTransfer({
+          receiver_phone: transaction.phone || "8888888888",
+          amount: amount,
+          transfer_pin: pin
+        });
+      } else {
+        result = await payBill({
+          bill_type: transaction.bill_type || 'electricity',
+          amount: amount,
+          account_number: transaction.account_number || '1234567890',
+          transfer_pin: pin
+        });
+      }
+      console.log("✅ Transaction Result:", result);
+
+      if (result.status === 'confirmation_required') {
+        speak(result.message);
+        setAppState(STATES.PIN_ENTRY);
+      } else if (result.status === 'success') {
+        speak(result.message || "Transaction successful");
+        setBalance(result.new_balance);
+        setAppState(STATES.SUCCESS);
+      } else {
+        const errorMsg = result.detail || result.error || result.message || "Transaction failed";
+        speak(errorMsg);
+        setErrorMsg(errorMsg);
+        setAppState(STATES.ERROR);
+      }
+    } catch (err) {
+      console.error("Transaction confirmation error:", err);
+      const msg = "A connection error occurred. Please try again.";
+      speak(msg);
+      setErrorMsg(msg);
+      setAppState(STATES.ERROR);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -123,6 +253,7 @@ function App() {
 
   const goBack = () => {
     setAppState(STATES.IDLE);
+    setErrorMsg('');
     window.speechSynthesis.cancel();
   };
 
@@ -157,6 +288,15 @@ function App() {
             <Login key="login" onRegisterClick={() => setIsRegistering(true)} />
           )}
         </AnimatePresence>
+      </div>
+    );
+  }
+
+  // If logged in but PIN not verified, show Login PIN
+  if (!isPinVerified) {
+    return (
+      <div className="app-container">
+        <LoginPin onVerify={handleLoginPinVerify} onBack={() => { }} />
       </div>
     );
   }
@@ -205,7 +345,35 @@ function App() {
           )}
 
           {appState === STATES.CONFIRM && (
-            <TransferConfirm key="confirm" onBack={goBack} amount={transaction.amount} recipient={transaction.recipient} />
+            <TransferConfirm
+              key="confirm"
+              onBack={goBack}
+              amount={transaction.amount}
+              recipient={transaction.recipient}
+              onConfirm={() => handleConfirmAction()}
+            />
+          )}
+
+          {appState === STATES.PIN_ENTRY && (
+            <div key="pin" className="flex-center" style={{ height: '100%', flexDirection: 'column', gap: '20px' }}>
+              <div className="back-btn" onClick={goBack}><ArrowLeft /></div>
+              <h2>Enter 4-digit PIN</h2>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} style={{ width: '40px', height: '40px', border: '2px solid #4f46e5', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                    *
+                  </div>
+                ))}
+              </div>
+              <p style={{ opacity: 0.7 }}>Say "My PIN is 1 2 3 4"</p>
+              {/* For demo purposes, we can also add a small button to simulate PIN entry */}
+              <button
+                onClick={() => handleConfirmAction("1234")}
+                style={{ marginTop: '20px', padding: '10px 20px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '8px' }}
+              >
+                Enter PIN 1234 (Demo)
+              </button>
+            </div>
           )}
 
           {appState === STATES.SUCCESS && (
@@ -213,7 +381,7 @@ function App() {
           )}
 
           {appState === STATES.ERROR && (
-            <ErrorScreen key="error" onRetry={goBack} />
+            <ErrorScreen key="error" onRetry={goBack} error={errorMsg} />
           )}
 
           {appState === STATES.HISTORY && <History key="history" onHome={goBack} />}

@@ -3,40 +3,106 @@ import { supabase } from '../supabaseClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-export async function sendVoiceCommand(transcript) {
-    // 1. Get current session for Auth Token
-    const { data: { session } } = await supabase.auth.getSession();
-
-    // For MVP/Dev, if no session, we might want to allow it or mock it.
-    // The user requirement says: "if !session ... return getMockResponse".
-    if (!session) {
-        console.warn("User not logged in (or no session). Using mock response.");
-        return getMockResponse(transcript);
+async function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 8000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (e) {
+        clearTimeout(id);
+        throw e;
     }
+}
+
+export async function sendVoiceCommand(transcript) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return getMockResponse(transcript);
 
     try {
-        // 2. Call Python Backend
-        const response = await fetch(`${API_BASE_URL}/voice/command`, {
+        const response = await fetchWithTimeout(`${API_BASE_URL}/voice/intent`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}` // Pass Supabase JWT
+                'Authorization': `Bearer ${session.access_token}`
             },
-            body: JSON.stringify({
-                text: transcript
-            })
+            body: JSON.stringify({ text: transcript })
         });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-
-        // 3. Return Data in expected format
-        const data = await response.json();
-        return data;
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        return await response.json();
     } catch (err) {
-        console.error("Backend request failed:", err);
-        return getMockResponse(transcript); // Graceful fallback
+        console.error("Voice intent failed:", err);
+        return getMockResponse(transcript);
+    }
+}
+
+export async function executeTransfer(transferData) {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetchWithTimeout(`${API_BASE_URL}/transaction/transfer`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify(transferData)
+        });
+        return await response.json();
+    } catch (e) {
+        return { status: 'error', detail: 'Request timed out or connection failed' };
+    }
+}
+
+export async function payBill(billData) {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetchWithTimeout(`${API_BASE_URL}/transaction/billpay`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify(billData)
+        });
+        return await response.json();
+    } catch (e) {
+        return { status: 'error', detail: 'Request timed out or connection failed' };
+    }
+}
+
+export async function getBalance() {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetchWithTimeout(`${API_BASE_URL}/account/balance`, {
+            headers: { 'Authorization': `Bearer ${session?.access_token}` },
+            timeout: 5000
+        });
+        if (!response.ok) return { balance: 0 };
+        return await response.json();
+    } catch (e) {
+        return { balance: 0 };
+    }
+}
+
+export async function setupPin(pin, type = 'login', phone = null) {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetchWithTimeout(`${API_BASE_URL}/account/setup-pin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`
+            },
+            body: JSON.stringify({ pin, type, phone })
+        });
+        return await response.json();
+    } catch (e) {
+        return { message: 'Failed to set up PIN' };
     }
 }
 

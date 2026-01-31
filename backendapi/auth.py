@@ -7,7 +7,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import create_client
 from config import settings
-from typing import Optional
+from typing import Optional, Dict, Any
+from database import db
 
 
 # Security scheme for JWT bearer tokens
@@ -28,8 +29,8 @@ async def validate_token(
     """
     # 1. If NO token is provided, use the Bypass (For easy testing)
     if not credentials:
-        # Actual Test User ID from our setup scripts
-        DEFAULT_USER_ID = "e16aa1c7-bdc9-46cb-a15a-d9f6e8eb58ae"
+        # Actual Test User ID from database
+        DEFAULT_USER_ID = "14005a20-a9f4-4747-b92e-69089d287901"
         print(f"\n⚠️  [AUTH BYPASS] No token provided. Using Default Test User: {DEFAULT_USER_ID}")
         return DEFAULT_USER_ID
 
@@ -37,9 +38,10 @@ async def validate_token(
     token = credentials.credentials
     
     try:
-        user = auth_client.auth.get_user(token)
+        # Validate with Supabase
+        user_response = auth_client.auth.get_user(token)
         
-        if not user or not user.user:
+        if not user_response or not user_response.user:
             # If they provided a fake token, we still block them
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -47,7 +49,12 @@ async def validate_token(
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        return user.user.id
+        user_id = user_response.user.id
+        
+        # AUTO-SYNC: Ensure user exists in our local DB table with default balance
+        db.sync_user(user_id, user_response.user.email)
+        
+        return user_id
         
     except Exception as e:
         # If validaton crashes, we show error
@@ -68,3 +75,24 @@ def get_current_user_id(user_id: str = Depends(validate_token)) -> str:
             return {"user_id": user_id}
     """
     return user_id
+
+
+def verify_login_pin(user_id: str, pin: str) -> bool:
+    """
+    Verify the 6-digit login PIN for a user.
+    """
+    return db.verify_user_pin(user_id, pin, "login")
+
+
+def mock_voice_unlock(user_id: str, audio_sample: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Mocked voice biometric verification.
+    In a real app, this would process the audio sample against a stored voiceprint.
+    """
+    # For hackathon/demo, we'll return a success signal
+    # This simulates a successful "My voice is my password" check
+    return {
+        "success": True,
+        "confidence": 0.98,
+        "message": "Voice verified successfully"
+    }

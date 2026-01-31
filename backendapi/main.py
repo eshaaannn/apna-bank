@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from config import settings
 
 # Import routers
-from routers import account, transaction, voice
+from routers import account, transaction, voice, auth_local
 
 
 # ============== App Initialization ==============
@@ -41,11 +41,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"\n>>>> [{request.method}] {request.url.path}")
+    response = await call_next(request)
+    print(f"<<<< Status: {response.status_code}")
+    return response
+
 # ============== Include Routers ==============
 
 app.include_router(account.router)
 app.include_router(transaction.router)
 app.include_router(voice.router)
+app.include_router(auth_local.router)
 
 # ============== Health Check ==============
 

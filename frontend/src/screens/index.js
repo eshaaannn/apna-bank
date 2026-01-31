@@ -6,7 +6,21 @@ import ErrorScreen from './ErrorScreen';
 import BalanceResult from './BalanceResult';
 import Login from './Login';
 import Register from './Register';
+import LoginPin from './LoginPin';
 
 import { History, Insight, Settings } from './PlaceholderScreens';
 
-export { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Insight, Settings };
+export {
+    Home,
+    RecipientInput,
+    TransferConfirm,
+    SuccessScreen,
+    ErrorScreen,
+    BalanceResult,
+    Login,
+    Register,
+    LoginPin,
+    History,
+    Insight,
+    Settings
+};
