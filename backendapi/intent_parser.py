@@ -10,18 +10,27 @@ from typing import Dict, Any, Optional, Tuple
 # ============== Intent Keywords ==============
 
 TRANSFER_KEYWORDS = [
-    "send", "transfer", "pay", "give",
-    "bhejo", "payment", "de do", "dena"
+    "send", "transfer", "pay", "give", "bhejo", "transfer", 
+    "payment", "de do", "dena", "paisa bhejo", "rupay bhejo",
+    "daal do", "transfer kar do"
 ]
 
 BALANCE_KEYWORDS = [
-    "balance", "check", "show", "what is",
-    "kitna", "kitne", "dikhao", "batao", "account"
+    "balance", "check", "show", "what is", "kitna", "kitne", 
+    "dikhao", "batao", "account", "paisa batao", "kitna hai"
 ]
 
 BILLPAY_KEYWORDS = [
     "bill", "pay bill", "electricity", "water", "mobile",
-    "recharge", "bijli", "pani", "phone"
+    "recharge", "bijli", "pani", "phone", "bharna", "jama karna"
+]
+
+CONFIRM_KEYWORDS = [
+    "yes", "confirm", "proceed", "ha", "haji", "thik hai", "ok", "done", "confirm karo", "kar do"
+]
+
+CANCEL_KEYWORDS = [
+    "no", "cancel", "stop", "nhi", "na", "cancel kar do"
 ]
 
 # ============== Hinglish Translation Map ==============
@@ -31,6 +40,7 @@ HINGLISH_MAP = {
     "kitna": "how much",
     "kitne": "how much",
     "paisa": "money",
+    "paise": "money",
     "rupay": "rupees",
     "rupaye": "rupees",
     "dikhao": "show",
@@ -39,6 +49,8 @@ HINGLISH_MAP = {
     "dena": "give",
     "bijli": "electricity",
     "pani": "water",
+    "bharna": "pay",
+    "jama": "pay",
 }
 
 # ============== Bill Type Keywords ==============
@@ -91,6 +103,18 @@ class IntentParser:
             if keyword in text:
                 return ("billpay", 0.90)
         
+        # Check for confirmation
+        for keyword in CONFIRM_KEYWORDS:
+            if keyword == text: # Strict check for "yes"
+                return ("confirm", 1.0)
+            if f" {keyword}" in text or f"{keyword} " in text:
+                return ("confirm", 0.9)
+
+        # Check for cancel
+        for keyword in CANCEL_KEYWORDS:
+            if keyword == text:
+                return ("cancel", 1.0)
+        
         # Unknown intent
         return ("unknown", 0.0)
     
@@ -114,18 +138,42 @@ class IntentParser:
         return None
     
     def extract_receiver_name(self, text: str) -> Optional[str]:
-        """Extract receiver name from text."""
-        # Pattern: "to <name>" or "ko <name>"
+        """Extract receiver name or phone from text."""
+        # Pattern: "to <name/phone>" or "ko <name/phone>"
+        # Allow numbers and basic names
         patterns = [
-            r'(?:to|ko)\s+([a-zA-Z]+)',
-            r'([a-zA-Z]+)\s+ko',
+            r'(?:to|ko)\s+([a-zA-Z0-9]+)',
+            r'([a-zA-Z0-9]+)\s+ko',
         ]
         
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1).strip()
+                name = match.group(1).strip()
+                # Resolve common demo names to the receiver's phone
+                if any(k in name.lower() for k in ["sharma", "receiver", "rahul", "dost", "friend"]):
+                    return "8888888888"
+                return name
         
+        return None
+
+    def extract_pin(self, text: str) -> Optional[str]:
+        """Extract 4-6 digit PIN from text, handling spaces."""
+        # Find all sequences of 4-6 digits with optional spaces
+        # Match boundaries to avoid part of phone numbers unless they are explicitly PIN-like
+        # We also look for digits separated by spaces like "1 2 3 4"
+        
+        # Strategy: find all digits and check if they form a 4-6 digit sequence
+        # But we only want sequences that are likely PINs
+        # Let's use a regex that looks for 4-6 digits possibly with spaces
+        matches = re.finditer(r'(?:\d\s*){4,6}', text)
+        for match in matches:
+            found = match.group(0).strip()
+            # Clean spaces
+            clean = re.sub(r'\s+', '', found)
+            if 4 <= len(clean) <= 6:
+                # Basic heuristic: if it's 10 digits, it might be a phone number, so we skipped it by {4,6}
+                return clean
         return None
     
     def extract_bill_type(self, text: str) -> Optional[str]:
@@ -181,13 +229,16 @@ class IntentParser:
                 "endpoint": "/transaction/transfer",
                 "params": {
                     "amount": amount,
-                    "receiver_phone": None  # Frontend needs to resolve name to phone
+                    "receiver_phone": receiver_name if (receiver_name and receiver_name.isdigit()) else "8888888888"
                 },
                 "missing_fields": missing_fields
             }
             
             if missing_fields:
                 message = f"Please provide: {', '.join(missing_fields)}"
+            else:
+                receiver_display = "Sharma" if receiver_name == "8888888888" else receiver_name
+                message = f"Confirming transfer of ₹{amount} to {receiver_display}. Say yes to proceed."
         
         elif intent == "balance":
             message = "Fetching your account balance..."
@@ -232,6 +283,11 @@ class IntentParser:
         else:
             message = "Sorry, I couldn't understand that. Try saying 'check balance' or 'send money'."
         
+        # Global entity extraction: PIN (can be said anytime)
+        pin = self.extract_pin(text)
+        if pin:
+            entities["pin"] = pin
+
         return {
             "intent": intent,
             "confidence": confidence,

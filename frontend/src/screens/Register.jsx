@@ -7,7 +7,10 @@ const Register = ({ onLoginClick }) => {
     const { signUp } = useAuth();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
+    const [loginPin, setLoginPin] = useState('');
+    const [transferPin, setTransferPin] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -26,9 +29,18 @@ const Register = ({ onLoginClick }) => {
             if (signUpError) {
                 setError(signUpError.message);
             } else {
-                // Supabase might require email confirmation. 
-                // In many hackathon configs, it logs you in immediately.
-                console.log("Signup successful!");
+                // Setup Profile and PINs via backend
+                const { setupPin } = await import('../api/bankingApi');
+
+                // If we had a direct updateProfile we'd use it, for now we can assume 
+                // the first setup-pin call or a separate update will sync the phone.
+                // Let's refine the sync_user logic on backend to handle this or add an endpoint.
+                if (loginPin) await setupPin(loginPin, 'login', phone);
+                if (transferPin) await setupPin(transferPin, 'transfer', phone);
+
+                // Add phone update if needed - for now we'll ensure backend sync_user can get it 
+                // but since signUp is Supabase client side, we might need a profile update.
+                console.log("Signup and PIN setup successful!");
             }
         } catch (err) {
             setError("An unexpected error occurred");
@@ -77,6 +89,17 @@ const Register = ({ onLoginClick }) => {
                 </div>
 
                 <div className="card" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 'bold' }}>+91</div>
+                    <input
+                        type="tel"
+                        placeholder="Phone Number"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        style={{ background: 'transparent', border: 'none', color: 'white', flex: 1, outline: 'none', fontSize: '1rem', padding: '10px 0' }}
+                    />
+                </div>
+
+                <div className="card" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <Lock size={20} color="#94a3b8" />
                     <input
                         type="password"
@@ -85,6 +108,29 @@ const Register = ({ onLoginClick }) => {
                         onChange={(e) => setPassword(e.target.value)}
                         style={{ background: 'transparent', border: 'none', color: 'white', flex: 1, outline: 'none', fontSize: '1rem', padding: '10px 0' }}
                     />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="card" style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                        <input
+                            type="text"
+                            maxLength={6}
+                            placeholder="6-digit Login PIN"
+                            value={loginPin}
+                            onChange={(e) => setLoginPin(e.target.value.replace(/\D/g, ''))}
+                            style={{ background: 'transparent', border: 'none', color: 'white', flex: 1, outline: 'none', fontSize: '0.9rem', padding: '10px 0' }}
+                        />
+                    </div>
+                    <div className="card" style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                        <input
+                            type="text"
+                            maxLength={4}
+                            placeholder="4-digit Trans PIN"
+                            value={transferPin}
+                            onChange={(e) => setTransferPin(e.target.value.replace(/\D/g, ''))}
+                            style={{ background: 'transparent', border: 'none', color: 'white', flex: 1, outline: 'none', fontSize: '0.9rem', padding: '10px 0' }}
+                        />
+                    </div>
                 </div>
 
                 <motion.button

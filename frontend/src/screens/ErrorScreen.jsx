@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
 
-const ErrorScreen = ({ onRetry }) => {
+const ErrorScreen = ({ onRetry, error }) => {
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -28,7 +28,7 @@ const ErrorScreen = ({ onRetry }) => {
 
             <h2 style={{ color: '#991b1b', marginBottom: '10px' }}>Something went wrong</h2>
             <p style={{ textAlign: 'center', color: '#b91c1c' }}>
-                We couldn't assume that. Please try again.
+                {error || "We couldn't assume that. Please try again."}
             </p>
 
             <button

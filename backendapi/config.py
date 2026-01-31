@@ -4,7 +4,7 @@ Loads environment variables and provides application settings.
 """
 
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Supabase Configuration
     supabase_url: str
     supabase_key: str
+    supabase_service_key: Optional[str] = None
     database_url: str
     
     # API Configuration

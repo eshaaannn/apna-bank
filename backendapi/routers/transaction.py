@@ -36,24 +36,38 @@ async def transfer_money(
     request: TransferRequest,
     user_id: str = Depends(get_current_user_id)
 ):
+    print(f"\n[TRANSFER] Request from {user_id} for amount {request.amount} to {request.receiver_phone}")
+    if request.transfer_pin:
+        print(f"[TRANSFER] PIN provided: YES")
+    else:
+        print(f"[TRANSFER] PIN provided: NO")
     """
     Transfer money to another user.
     
-    **Security**: Requires valid JWT. Validates:
-    - Amount > 0 (enforced by Pydantic)
-    - Sufficient balance
-    - Receiver exists
-    
-    **Atomicity**: Uses database transactions to prevent double-spending.
+    **Security**: 
+    - Requires valid JWT.
+    - Requires 4-digit Transfer PIN for final execution.
+    - Enforces ₹2000 per-transaction limit.
     """
-    # Validate amount
+    # 1. Basic Validation
     if request.amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Amount must be greater than 0"
-        )
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
     
-    # Find receiver by phone
+    # 2. Check for PIN
+    if not request.transfer_pin:
+        # If no PIN, we return a "Confirmation Required" prompt
+        # Resolve receiver name for a better message
+        receiver = db.get_user_by_phone(request.receiver_phone)
+        receiver_display = receiver.get("name", request.receiver_phone) if receiver else request.receiver_phone
+        
+        return TransactionResponse(
+            transaction_id="pending",
+            status="confirmation_required",
+            new_balance=0.0,
+            message=f"I will transfer ₹{request.amount} to {receiver_display}. Please say or enter your 4-digit transfer PIN to confirm."
+        )
+
+    # 3. Find receiver by phone
     receiver = db.get_user_by_phone(request.receiver_phone)
     if not receiver:
         raise HTTPException(
@@ -61,33 +75,28 @@ async def transfer_money(
             detail=f"No user found with phone number {request.receiver_phone}"
         )
     
-    # Prevent self-transfer
+    # 4. Prevent self-transfer
     if receiver["id"] == user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot transfer money to yourself"
-        )
+        raise HTTPException(status_code=400, detail="Cannot transfer money to yourself")
     
-    # Execute transfer
+    # 5. Execute transfer (Includes Fraud Checks and PIN Verification)
     result = db.execute_transfer(
         sender_id=user_id,
         receiver_id=receiver["id"],
         amount=request.amount,
-        note=request.note
+        note=request.note,
+        transfer_pin=request.transfer_pin
     )
     
     if not result["success"]:
-        # Handle specific errors
-        if "Insufficient funds" in result.get("error", ""):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=result["error"],
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=result.get("error", "Transfer failed")
-            )
+        # Specific business logic errors
+        error_msg = result.get("error", "Transfer failed")
+        print(f"[TRANSFER] Failed: {error_msg}")
+        if "PIN" in error_msg:
+            raise HTTPException(status_code=401, detail=error_msg)
+        raise HTTPException(status_code=400, detail=error_msg)
+    
+    print(f"[TRANSFER] Success!")
     
     return TransactionResponse(
         transaction_id=result["transaction_id"],
@@ -113,64 +122,58 @@ async def pay_bill(
 ):
     """
     Pay a utility bill.
-    
-    **Security**: Requires valid JWT. Validates:
-    - Amount > 0
-    - Sufficient balance
-    - Valid bill type
-    
-    **Note**: For hackathon MVP, this deducts from user balance without real integration.
     """
-    # Validate amount
+    # 1. Validation
     if request.amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Amount must be greater than 0"
-        )
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
     
-    # Validate bill type
     valid_bill_types = ["electricity", "water", "mobile", "internet", "gas"]
     if request.bill_type not in valid_bill_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid bill type. Must be one of: {', '.join(valid_bill_types)}"
+        raise HTTPException(status_code=400, detail=f"Invalid bill type. Use: {', '.join(valid_bill_types)}")
+
+    # 2. Check for PIN
+    if not request.transfer_pin:
+        return BillPaymentResponse(
+            transaction_id="pending",
+            status="confirmation_required",
+            bill_type=request.bill_type,
+            new_balance=0.0,
+            message=f"I will pay ₹{request.amount} for your {request.bill_type} bill. Please say or enter your 4-digit transfer PIN to confirm."
         )
-    
-    # Get user balance
+
+    # 3. Verify PIN
+    if not db.verify_user_pin(user_id, request.transfer_pin, "transfer"):
+        raise HTTPException(status_code=401, detail="Invalid transfer PIN")
+
+    # 4. Get user balance
     user = db.get_user_by_id(user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        raise HTTPException(status_code=404, detail="User not found")
     
-    # Check sufficient balance
+    # 5. FRAUD CHECK: Max Limit
+    MAX_TX_AMOUNT = 2000.0
+    if request.amount > MAX_TX_AMOUNT:
+        raise HTTPException(status_code=400, detail=f"Bill payment exceeds limit of ₹{MAX_TX_AMOUNT}")
+
+    # 6. Check sufficient balance
     if user["balance"] < request.amount:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Insufficient funds. Current balance: ₹{user['balance']}, Required: ₹{request.amount}"
-        )
+        raise HTTPException(status_code=400, detail=f"Insufficient funds")
     
-    # Deduct amount
+    # 7. Deduct amount and create record
     if not db.update_balance(user_id, -request.amount):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to process bill payment"
-        )
+        raise HTTPException(status_code=500, detail="Failed to process payment")
     
-    # Create transaction record
     transaction_id = db.create_transaction({
         "sender_id": user_id,
-        "receiver_id": None,  # Bill payment has no receiver
+        "receiver_id": None,
         "amount": request.amount,
         "type": "billpay",
-        "status": "completed",
+        "status": "success",
         "note": f"{request.bill_type} bill payment - Account: {request.account_number}"
     })
     
-    # Get updated balance
+    # 8. Return response
     updated_user = db.get_user_by_id(user_id)
-    
     return BillPaymentResponse(
         transaction_id=transaction_id,
         status="success",
