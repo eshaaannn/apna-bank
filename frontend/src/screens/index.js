@@ -8,7 +8,7 @@ import Login from './Login';
 import Register from './Register';
 import LoginPin from './LoginPin';
 
-import { History, Insight, Settings } from './PlaceholderScreens';
+import { History, Profile, Settings } from './PlaceholderScreens';
 
 export {
     Home,
@@ -24,3 +24,4 @@ export {
     Insight,
     Settings
 };
+export { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Profile, Settings };

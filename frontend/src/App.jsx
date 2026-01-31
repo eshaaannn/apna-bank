@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { VoiceRecorder, VoiceInput } from './voice';
 import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, LoginPin, History, Insight, Settings } from './screens';
 import { sendVoiceCommand, getBalance, executeTransfer, payBill } from './api/bankingApi';
+import { Home, RecipientInput, TransferConfirm, SuccessScreen, ErrorScreen, BalanceResult, Login, Register, History, Profile, Settings } from './screens';
+import { sendVoiceCommand } from './api/bankingApi';
 import { ArrowLeft } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import './index.css';
@@ -19,16 +21,18 @@ const STATES = {
   ERROR: 'ERROR',
   BALANCE: 'BALANCE',
   HISTORY: 'HISTORY',
-  INSIGHT: 'INSIGHT',
+  PROFILE: 'PROFILE',
   SETTING: 'SETTING',
   PIN_ENTRY: 'PIN_ENTRY',
   LOGIN_PIN: 'LOGIN_PIN',
 };
 
 import { useAuth } from './context/AuthContext';
+import { useLanguage } from './context/LanguageContext';
 
 function App() {
   const { user, loading } = useAuth(); // Auth Check
+  const { voiceLang, t } = useLanguage();
   const [isRegistering, setIsRegistering] = useState(false);
 
   const [appState, setAppState] = useState(STATES.IDLE);
@@ -42,15 +46,19 @@ function App() {
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // ... (Voice Logic Helpers - speak, processVoiceCommand, etc) ...
+  // [KEEP ALL EXISTING LOGIC HELPERS HERE]
+
   // Voice Interaction Helpers
   const speak = useCallback((text) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = voiceLang; // Use context language
       utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
-  }, []);
+  }, [voiceLang]);
 
   const processVoiceCommand = async (transcript) => {
     console.log("🎤 Voice Command:", transcript);
@@ -122,6 +130,11 @@ function App() {
         speak(msg);
         setErrorMsg(msg);
         setAppState(STATES.ERROR);
+          setAppState(STATES.SUCCESS);
+          break;
+        case 'idle': setAppState(STATES.IDLE); break;
+        case 'profile': setAppState(STATES.PROFILE); break;
+        default: break;
       }
     } catch (e) {
       console.error("Command processing error:", e);
@@ -307,6 +320,7 @@ function App() {
       {/* Voice Logic Layer - Only active when logged in */}
       <VoiceInput
         listening={micActive}
+        language={voiceLang}
         onSpeechStart={() => console.log('Speech Started')}
         onSpeechEnd={onSpeechEnd}
         onResult={onResult}
@@ -385,13 +399,13 @@ function App() {
           )}
 
           {appState === STATES.HISTORY && <History key="history" onHome={goBack} />}
-          {appState === STATES.INSIGHT && <Insight key="insight" onHome={goBack} />}
+          {appState === STATES.PROFILE && <Profile key="profile" onHome={goBack} />}
           {appState === STATES.SETTING && <Settings key="settings" onHome={goBack} />}
         </AnimatePresence>
       </div>
 
-      {/* Persistent Floating Mic - HIDE on Home (IDLE & LISTENING) because Home has its own Hello-style Mic */}
-      {![STATES.IDLE, STATES.LISTENING].includes(appState) && (
+      {/* Persistent Floating Mic - HIDE on Home, History, Profile, Settings */}
+      {![STATES.IDLE, STATES.LISTENING, STATES.HISTORY, STATES.PROFILE, STATES.SETTING].includes(appState) && (
         <div style={{ position: 'absolute', bottom: '40px', left: '0', right: '0', display: 'flex', justifyContent: 'center', pointerEvents: 'none', zIndex: 100 }}>
           <div style={{ pointerEvents: 'auto' }}>
             <VoiceRecorder isListening={micActive} onClick={handleMicClick} />
